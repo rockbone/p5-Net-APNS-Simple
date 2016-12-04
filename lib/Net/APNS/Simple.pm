@@ -16,28 +16,58 @@ has [qw/auth_key key_id team_id bundle_id development/] => (
     is => 'rw',
 );
 
-sub algorithm {'ES256'};
+sub algorithm {'ES256'}
 
-sub host {
+sub _host {
     my ($self) = @_;
     return 'api.' . ($self->development ? 'development.' : '') . 'push.apple.com'
 }
 
-sub notify {
-    my ($self, $device_token, $aps, $cb, $arg) = @_;
+sub _port {443}
+
+sub _secret {
+    my ($self) = @_;
+    if (!$self->{secret}){
+        $self->{secret} = `openssl pkcs8 -nocrypt -in @{[$self->auth_key]}`;
+        $? == 0
+            or Carp::croak("Cannot read auth_key file. $!");
+    }
+    return $self->{secret};
+}
+
+sub _socket {
+    my ($self) = @_;
+    if (!$self->{_socket}){
+        # TLS transport socket
+        $self->{_socket} = IO::Socket::SSL->new(
+            PeerHost => $self->_host,
+            PeerPort => $self->_port,
+            # openssl 1.0.1 support only NPN
+            SSL_npn_protocols => ['h2'],
+            # openssl 1.0.2 also have ALPN
+            SSL_alpn_protocols => ['h2'],
+            SSL_version => 'TLSv1_2',
+        ) or die $!||$SSL_ERROR;
+
+        # non blocking
+        $self->{_socket}->blocking(0);
+    }
+    return $self->{_socket};
+}
+
+sub _client {
+    my ($self) = @_;
+    $self->{_client} ||= Protocol::HTTP2::Client->new;
+    return $self->{_client};
+}
+
+sub prepare {
+    my ($self, $device_token, $aps, $cb) = @_;
     defined $device_token && $device_token ne ''
         or Carp::croak("Empty parameter 'device_token'");
     ref $aps eq 'HASH'
         or Carp::croak("Parameter aps is not HASHREF");
-    $arg ||= {};
-    for my $attr (qw/auth_key key_id team_id bundle_id/){
-        exists $arg->{$attr} and $self->$attr($arg->{$attr});
-        defined $self->$attr && $self->$attr ne ''
-            or Carp::croak("Empty parameter '$attr'");
-    }
-    my $secret = `openssl pkcs8 -nocrypt -in @{[$self->auth_key]}`;
-    $? == 0
-        or Carp::croak("Cannot read auth_key file. $!");
+    my $secret = $self->_secret;
     my $craims = {
         iss => $self->team_id,
         iat => time,
@@ -51,10 +81,9 @@ sub notify {
         },
     );
     my $path = sprintf '/3/device/%s', $device_token;
-    my $h2_client = Protocol::HTTP2::Client->new;
-    $h2_client->request(
+    $self->_client->request(
         ':scheme' => 'https',
-        ':authority' => join(":", $self->host, 443),
+        ':authority' => join(":", $self->_host, $self->_port),
         ':path' => $path,
         ':method' => 'POST',
         headers => [
@@ -66,32 +95,23 @@ sub notify {
         data => JSON::encode_json({aps => $aps}),
         on_done => $cb,
     );
-    # TLS transport socket
-    my $client = IO::Socket::SSL->new(
-        PeerHost => $self->host,
-        PeerPort => 443,
-        # openssl 1.0.1 support only NPN
-        SSL_npn_protocols => ['h2'],
-        # openssl 1.0.2 also have ALPN
-        SSL_alpn_protocols => ['h2'],
-        SSL_version => 'TLSv1_2',
-    ) or die $!||$SSL_ERROR;
+    return $self;
+}
 
-    # non blocking
-    $client->blocking(0);
+sub notify {
+    my ($self) = @_;
 
-    my $sel = IO::Select->new($client);
-
+    my $io = IO::Select->new($self->_socket);
     # send/recv frames until request is done
-    while ( !$h2_client->shutdown ) {
-        $sel->can_write;
-        while ( my $frame = $h2_client->next_frame ) {
-            syswrite $client, $frame;
+    while ( !$self->_client->shutdown ) {
+        $io->can_write;
+        while ( my $frame = $self->_client->next_frame ) {
+            syswrite $self->_socket, $frame;
         }
 
-        $sel->can_read;
-        while ( sysread $client, my $data, 4096 ) {
-            $h2_client->feed($data);
+        $io->can_read;
+        while ( sysread $self->_socket, my $data, 4096 ) {
+            $self->_client->feed($data);
         }
     }
 }
