@@ -12,8 +12,10 @@ Net::APNS::Simple - APNS Perl implementation
         key_id => 'AUTH_KEY_ID',
         team_id => 'APP_PREFIX',
         bundle_id => 'APP_ID',
+        apns_expiration => 0,
+        apns_priority => 10,
     );
-    $apns->notify('DEVICE_ID',{
+    $apns->prepare('DEVICE_ID',{
             alert => 'APNS message: HELLO!',
             badge => 1,
             sound => "default",
@@ -30,11 +32,15 @@ Net::APNS::Simple - APNS Perl implementation
             #           '791DE8BA-7CAA-B820-BD2D-5B12653A8DF3'
             #         ];
 
-            print $content;
+            print Dumper $content;
 
             # $VAR1 = undef;
         }
     );
+
+    # $apns->prepare(1st request)->prepare(2nd request)....
+
+    $apns->notify();
 
 # DESCRIPTION
 

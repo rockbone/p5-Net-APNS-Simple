@@ -16,6 +16,16 @@ has [qw/auth_key key_id team_id bundle_id development/] => (
     is => 'rw',
 );
 
+has apns_expiration => (
+    is => 'rw',
+    default => 0,
+);
+
+has apns_priority => (
+    is => 'rw',
+    default => 10,
+);
+
 sub algorithm {'ES256'}
 
 sub _host {
@@ -37,7 +47,7 @@ sub _secret {
 
 sub _socket {
     my ($self) = @_;
-    if (!$self->{_socket}){
+    if (!$self->{_socket} || !$self->{_socket}->opened){
         # TLS transport socket
         $self->{_socket} = IO::Socket::SSL->new(
             PeerHost => $self->_host,
@@ -66,7 +76,7 @@ sub prepare {
     defined $device_token && $device_token ne ''
         or Carp::croak("Empty parameter 'device_token'");
     ref $aps eq 'HASH'
-        or Carp::croak("Parameter aps is not HASHREF");
+        or Carp::croak("Parameter 'aps' is not HASHREF");
     my $secret = $self->_secret;
     my $craims = {
         iss => $self->team_id,
@@ -87,8 +97,8 @@ sub prepare {
         ':path' => $path,
         ':method' => 'POST',
         headers => [
-            'apns-expiration' => 0,
-            'apns-priority' => 10,
+            'apns-expiration' => $self->apns_expiration,
+            'apns-priority' => $self->apns_expiration,
             'apns-topic' => $self->bundle_id,
             'authorization'=> sprintf('bearer %s', $jwt),
         ],
@@ -114,6 +124,7 @@ sub notify {
             $self->_client->feed($data);
         }
     }
+    $self->_socket->close(SSL_ctx_free => 1);
 }
 
 1;
@@ -135,8 +146,10 @@ Net::APNS::Simple - APNS Perl implementation
         key_id => 'AUTH_KEY_ID',
         team_id => 'APP_PREFIX',
         bundle_id => 'APP_ID',
+        apns_expiration => 0,
+        apns_priority => 10,
     );
-    $apns->notify('DEVICE_ID',{
+    $apns->prepare('DEVICE_ID',{
             alert => 'APNS message: HELLO!',
             badge => 1,
             sound => "default",
@@ -153,11 +166,15 @@ Net::APNS::Simple - APNS Perl implementation
             #           '791DE8BA-7CAA-B820-BD2D-5B12653A8DF3'
             #         ];
 
-            print $content;
+            print Dumper $content;
 
             # $VAR1 = undef;
         }
     );
+
+    # $apns->prepare(1st request)->prepare(2nd request)....
+
+    $apns->notify();
 
 =head1 DESCRIPTION
 
