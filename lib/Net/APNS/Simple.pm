@@ -37,12 +37,12 @@ sub _port {443}
 
 sub _secret {
     my ($self) = @_;
-    if (!$self->{secret}){
-        $self->{secret} = `openssl pkcs8 -nocrypt -in @{[$self->auth_key]}`;
+    if (!$self->{_secret}){
+        $self->{_secret} = `openssl pkcs8 -nocrypt -in @{[$self->auth_key]}`;
         $? == 0
             or Carp::croak("Cannot read auth_key file. $!");
     }
-    return $self->{secret};
+    return $self->{_secret};
 }
 
 sub _socket {
@@ -65,12 +65,6 @@ sub _socket {
     return $self->{_socket};
 }
 
-sub _client {
-    my ($self) = @_;
-    $self->{_client} ||= Protocol::HTTP2::Client->new;
-    return $self->{_client};
-}
-
 sub prepare {
     my ($self, $device_token, $aps, $cb) = @_;
     defined $device_token && $device_token ne ''
@@ -91,39 +85,40 @@ sub prepare {
         },
     );
     my $path = sprintf '/3/device/%s', $device_token;
-    $self->_client->request(
+    push @{$self->{_request}}, {
         ':scheme' => 'https',
         ':authority' => join(":", $self->_host, $self->_port),
         ':path' => $path,
         ':method' => 'POST',
         headers => [
             'apns-expiration' => $self->apns_expiration,
-            'apns-priority' => $self->apns_expiration,
+            'apns-priority' => $self->apns_priority,
             'apns-topic' => $self->bundle_id,
             'authorization'=> sprintf('bearer %s', $jwt),
         ],
         data => JSON::encode_json({aps => $aps}),
         on_done => $cb,
-    );
+    };
     return $self;
 }
 
 sub notify {
     my ($self) = @_;
-
+    my $client = Protocol::HTTP2::Client->new(keepalive => 1);
     my $io = IO::Select->new($self->_socket);
     # send/recv frames until request is done
-    while ( !$self->_client->shutdown ) {
+    while ( my $request = shift @{$self->{_request}} ) {
+        $client->request(%$request);
         $io->can_write;
-        while ( my $frame = $self->_client->next_frame ) {
+        while ( my $frame = $client->next_frame ) {
             syswrite $self->_socket, $frame;
         }
-
         $io->can_read;
         while ( sysread $self->_socket, my $data, 4096 ) {
-            $self->_client->feed($data);
+            $client->feed($data);
         }
     }
+    $client->close;
     $self->_socket->close(SSL_ctx_free => 1);
 }
 
