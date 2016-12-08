@@ -8,7 +8,7 @@ use JSON;
 use Moo;
 use Protocol::HTTP2::Client;
 use IO::Select;
-use IO::Socket::SSL qw(debug4);
+use IO::Socket::SSL qw();
 
 our $VERSION = "0.01";
 
