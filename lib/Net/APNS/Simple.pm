@@ -105,10 +105,35 @@ sub prepare {
 sub notify {
     my ($self) = @_;
     my $client = Protocol::HTTP2::Client->new(keepalive => 1);
+    my $req_cb; $req_cb = sub {
+        if (my $req = shift @{$self->{_request}}){
+            my $done_cb = delete $req->{on_done};
+            $client->request(
+                %$req,
+                on_done => sub {
+                    ref $done_cb eq 'CODE'
+                        and $done_cb->(@_);
+                    $req_cb->();
+                },
+            );
+        }
+        else {
+            $client->close;
+        }
+    };
+    my $req = shift @{$self->{_request}};
+    my $done_cb = delete $req->{on_done};
+    $client->request(
+        %$req,
+        on_done => sub {
+            ref $done_cb eq 'CODE'
+                and $done_cb->(@_);
+            $req_cb->();
+        },
+    );
     my $io = IO::Select->new($self->_socket);
     # send/recv frames until request is done
-    while ( my $request = shift @{$self->{_request}} ) {
-        $client->request(%$request);
+    while ( !$client->shutdown ) {
         $io->can_write;
         while ( my $frame = $client->next_frame ) {
             syswrite $self->_socket, $frame;
@@ -118,7 +143,6 @@ sub notify {
             $client->feed($data);
         }
     }
-    $client->close;
     $self->_socket->close(SSL_ctx_free => 1);
 }
 
