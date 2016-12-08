@@ -57,7 +57,7 @@ sub _socket {
             # openssl 1.0.2 also have ALPN
             SSL_alpn_protocols => ['h2'],
             SSL_version => 'TLSv1_2',
-        ) or die $!||$SSL_ERROR;
+        ) or die $! || $IO::Socket::SSL::SSL_ERROR;
 
         # non blocking
         $self->{_socket}->blocking(0);
@@ -128,6 +128,7 @@ sub _make_client_request_single {
 
 sub notify {
     my ($self) = @_;
+    # request one by one as APNS server returns SETTINGS_MAX_CONCURRENT_STREAMS = 1
     $self->_make_client_request_single();
     my $io = IO::Select->new($self->_socket);
     # send/recv frames until request is done
