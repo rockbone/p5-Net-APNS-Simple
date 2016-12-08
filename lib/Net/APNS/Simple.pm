@@ -108,29 +108,27 @@ sub prepare {
     return $self;
 }
 
-sub _make_client_request {
+sub _make_client_request_single {
     my ($self) = @_;
-    my $req = shift @{$self->{_request}}
-        or return;
-    my $done_cb = delete $req->{on_done};
-    $self->_client->request(
-        %$req,
-        on_done => sub {
-            ref $done_cb eq 'CODE'
-                and $done_cb->(@_);
-            if (@{$self->{_request}}){
-                $self->_make_client_request();
-            }
-            else {
-                $self->_client->close;
-            }
-        },
-    );
+    if (my $req = shift @{$self->{_request}}){
+        my $done_cb = delete $req->{on_done};
+        $self->_client->request(
+            %$req,
+            on_done => sub {
+                ref $done_cb eq 'CODE'
+                    and $done_cb->(@_);
+                $self->_make_client_request_single();
+            },
+        );
+    }
+    else {
+        $self->_client->close;
+    }
 }
 
 sub notify {
     my ($self) = @_;
-    $self->_make_client_request();
+    $self->_make_client_request_single();
     my $io = IO::Select->new($self->_socket);
     # send/recv frames until request is done
     while ( !$self->_client->shutdown ) {
