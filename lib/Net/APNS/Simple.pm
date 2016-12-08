@@ -65,6 +65,12 @@ sub _socket {
     return $self->{_socket};
 }
 
+sub _client {
+    my ($self) = @_;
+    $self->{_client} ||= Protocol::HTTP2::Client->new(keepalive => 1);
+    return $self->{_client};
+}
+
 sub prepare {
     my ($self, $device_token, $aps, $cb) = @_;
     defined $device_token && $device_token ne ''
@@ -102,47 +108,42 @@ sub prepare {
     return $self;
 }
 
-sub notify {
+sub _make_client_request {
     my ($self) = @_;
-    my $client = Protocol::HTTP2::Client->new(keepalive => 1);
-    my $req_cb; $req_cb = sub {
-        if (my $req = shift @{$self->{_request}}){
-            my $done_cb = delete $req->{on_done};
-            $client->request(
-                %$req,
-                on_done => sub {
-                    ref $done_cb eq 'CODE'
-                        and $done_cb->(@_);
-                    $req_cb->();
-                },
-            );
-        }
-        else {
-            $client->close;
-        }
-    };
-    my $req = shift @{$self->{_request}};
+    my $req = shift @{$self->{_request}}
+        or return;
     my $done_cb = delete $req->{on_done};
-    $client->request(
+    $self->_client->request(
         %$req,
         on_done => sub {
             ref $done_cb eq 'CODE'
                 and $done_cb->(@_);
-            $req_cb->();
+            if (@{$self->{_request}}){
+                $self->_make_client_request();
+            }
+            else {
+                $self->_client->close;
+            }
         },
     );
+}
+
+sub notify {
+    my ($self) = @_;
+    $self->_make_client_request();
     my $io = IO::Select->new($self->_socket);
     # send/recv frames until request is done
-    while ( !$client->shutdown ) {
+    while ( !$self->_client->shutdown ) {
         $io->can_write;
-        while ( my $frame = $client->next_frame ) {
+        while ( my $frame = $self->_client->next_frame ) {
             syswrite $self->_socket, $frame;
         }
         $io->can_read;
         while ( sysread $self->_socket, my $data, 4096 ) {
-            $client->feed($data);
+            $self->_client->feed($data);
         }
     }
+    undef $self->{_client};
     $self->_socket->close(SSL_ctx_free => 1);
 }
 
