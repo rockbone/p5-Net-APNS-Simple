@@ -2,9 +2,17 @@
 
 Net::APNS::Simple - APNS Perl implementation
 
+# DESCRIPTION
+
+A Perl implementation for sending notifications via APNS using Apple's new HTTP/2 API.
+This library uses Protocol::HTTP2::Client as http2 backend.
+And it also supports having many stream at one connection.
+(It does not correspond to parallel stream because APNS server returns SETTINGS_MAX_CONCURRENT_STREAMS = 1.)
+
 # SYNOPSIS
 
     use Net::APNS::Simple;
+
     my $apns = Net::APNS::Simple->new(
         # enable if development
         # development => 1,
@@ -12,8 +20,12 @@ Net::APNS::Simple - APNS Perl implementation
         key_id => 'AUTH_KEY_ID',
         team_id => 'APP_PREFIX',
         bundle_id => 'APP_ID',
+        apns_expiration => 0,
+        apns_priority => 10,
     );
-    $apns->notify('DEVICE_ID',{
+
+    # 1st request
+    $apns->prepare('DEVICE_ID',{
             alert => 'APNS message: HELLO!',
             badge => 1,
             sound => "default",
@@ -30,15 +42,20 @@ Net::APNS::Simple - APNS Perl implementation
             #           '791DE8BA-7CAA-B820-BD2D-5B12653A8DF3'
             #         ];
 
-            print $content;
+            print Dumper $content;
 
             # $VAR1 = undef;
         }
     );
 
-# DESCRIPTION
+    # 2nd request
+    $apns->prepare(...);
 
-Net::APNS::Simple is APNS Perl implementation.
+    # also supports method chain
+    # $apns->prepare(1st request)->prepare(2nd request)....
+
+    # send notification
+    $apns->notify();
 
 # LICENSE
 
