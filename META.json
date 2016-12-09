@@ -1,5 +1,5 @@
 {
-   "abstract" : "It's new $module",
+   "abstract" : "APNS Perl implementation",
    "author" : [
       "Tooru Tsurukawa <rockbone.g at gmail.com>"
    ],
@@ -52,5 +52,19 @@
       }
    },
    "release_status" : "unstable",
-   "version" : "0.01"
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/rockbone/p5-Net-APNS-Simple/issues"
+      },
+      "homepage" : "https://github.com/rockbone/p5-Net-APNS-Simple",
+      "repository" : {
+         "type" : "git",
+         "url" : "git://github.com/rockbone/p5-Net-APNS-Simple.git",
+         "web" : "https://github.com/rockbone/p5-Net-APNS-Simple"
+      }
+   },
+   "version" : "0.02",
+   "x_contributors" : [
+      "Tooru Tsurukawa <rockbone.g@gmail.com>"
+   ]
 }

@@ -7,7 +7,7 @@ Net::APNS::Simple - APNS Perl implementation
 A Perl implementation for sending notifications via APNS using Apple's new HTTP/2 API.
 This library uses Protocol::HTTP2::Client as http2 backend.
 And it also supports having many stream at one connection.
-(It does not correspond to parallel stream because APNS server returns SETTINGS_MAX_CONCURRENT_STREAMS = 1.)
+(It does not correspond to parallel stream because APNS server returns SETTINGS\_MAX\_CONCURRENT\_STREAMS = 1.)
 
 # SYNOPSIS
 
@@ -66,4 +66,4 @@ it under the same terms as Perl itself.
 
 # AUTHOR
 
-Tooru Tsurukawa <rockbone.g at gmail.com>
+Tooru Tsurukawa &lt;rockbone.g at gmail.com>
