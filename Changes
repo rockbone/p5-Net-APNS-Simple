@@ -6,3 +6,7 @@ Revision history for Perl extension Net-APNS-Simple
 
     - Add ssl connection keepalive.
 
+0.01 2016-12-02T06:16:29Z
+
+    - original version
+

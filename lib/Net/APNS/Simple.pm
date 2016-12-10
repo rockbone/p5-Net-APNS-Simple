@@ -26,7 +26,7 @@ has apns_priority => (
     default => 10,
 );
 
-sub algorithm {'ES256'}
+sub algorithm{'ES256'}
 
 sub _host {
     my ($self) = @_;
@@ -34,16 +34,6 @@ sub _host {
 }
 
 sub _port {443}
-
-sub _secret {
-    my ($self) = @_;
-    if (!$self->{_secret}){
-        $self->{_secret} = `openssl pkcs8 -nocrypt -in @{[$self->auth_key]}`;
-        $? == 0
-            or Carp::croak("Cannot read auth_key file. $!");
-    }
-    return $self->{_secret};
-}
 
 sub _socket {
     my ($self) = @_;
@@ -72,19 +62,14 @@ sub _client {
 }
 
 sub prepare {
-    my ($self, $device_token, $aps, $cb) = @_;
-    defined $device_token && $device_token ne ''
-        or Carp::croak("Empty parameter 'device_token'");
-    ref $aps eq 'HASH'
-        or Carp::croak("Parameter 'aps' is not HASHREF");
-    my $secret = $self->_secret;
+    my ($self, $device_token, $payload, $cb) = @_;
     my $craims = {
         iss => $self->team_id,
         iat => time,
     };
     my $jwt = Crypt::JWT::encode_jwt(
         payload => $craims,
-        key => \$secret,
+        key => [$self->auth_key],
         alg => $self->algorithm,
         extra_headers => {
             kid => $self->key_id,
@@ -102,7 +87,7 @@ sub prepare {
             'apns-topic' => $self->bundle_id,
             'authorization'=> sprintf('bearer %s', $jwt),
         ],
-        data => JSON::encode_json({aps => $aps}),
+        data => JSON::encode_json($payload),
         on_done => $cb,
     };
     return $self;
@@ -159,7 +144,7 @@ Net::APNS::Simple - APNS Perl implementation
 
 A Perl implementation for sending notifications via APNS using Apple's new HTTP/2 API.
 This library uses Protocol::HTTP2::Client as http2 backend.
-And it also supports having many stream at one connection.
+And it also supports multiple stream at one connection.
 (It does not correspond to parallel stream because APNS server returns SETTINGS_MAX_CONCURRENT_STREAMS = 1.)
 
 =head1 SYNOPSIS
@@ -179,10 +164,12 @@ And it also supports having many stream at one connection.
 
     # 1st request
     $apns->prepare('DEVICE_ID',{
-            alert => 'APNS message: HELLO!',
-            badge => 1,
-            sound => "default",
-            # SEE: https://developer.apple.com/jp/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/TheNotificationPayload.html,
+            aps => {
+                alert => 'APNS message: HELLO!',
+                badge => 1,
+                sound => "default",
+                # SEE: https://developer.apple.com/jp/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/TheNotificationPayload.html,
+            },
         }, sub {
             my ($header, $content) = @_;
             require Data::Dumper;

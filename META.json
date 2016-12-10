@@ -42,11 +42,19 @@
       },
       "runtime" : {
          "requires" : {
+            "Crypt::JWT" : "0.018",
+            "IO::Socket::SSL" : "2.038",
+            "JSON" : "0",
+            "Moo" : "0",
+            "Protocol::HTTP2" : "1.08",
+            "URI" : "0",
             "perl" : "5.008001"
          }
       },
       "test" : {
          "requires" : {
+            "File::Basename" : "0",
+            "File::Spec" : "0",
             "Test::More" : "0.98"
          }
       }
