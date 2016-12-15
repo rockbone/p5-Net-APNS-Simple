@@ -26,7 +26,7 @@ has apns_priority => (
     default => 10,
 );
 
-sub algorithm{'ES256'}
+sub algorithm {'ES256'}
 
 sub _host {
     my ($self) = @_;
@@ -147,6 +147,8 @@ This library uses Protocol::HTTP2::Client as http2 backend.
 And it also supports multiple stream at one connection.
 (It does not correspond to parallel stream because APNS server returns SETTINGS_MAX_CONCURRENT_STREAMS = 1.)
 
+    You can not use the key obtained from Apple at the moment, see the item of Caution below.
+
 =head1 SYNOPSIS
 
     use Net::APNS::Simple;
@@ -196,6 +198,60 @@ And it also supports multiple stream at one connection.
 
     # send notification
     $apns->notify();
+
+=head1 METHODS
+
+=head2 my $apns = Net::APNS::Simple->new(%arg)
+
+=over
+
+=item development : bool
+
+Switch API's URL to 'api.development.push.apple.com' if enabled.
+
+=item auth_key : string
+
+Private key file for APNS obtained from Apple.
+
+=item team_id : string
+
+Team ID (App Prefix)
+
+=item bundle_id : string
+
+Bundle ID (App ID)
+
+=item apns_expiration : number
+
+Default 0.
+
+=item apns_priority : number
+
+Default 10.
+
+=back
+
+    All properties can be accessed as Getter/Setter like `$apns->development`.
+
+=head2 $apns->prepare($DEVICE_ID, $PAYLOAD);
+
+Prepare notification.
+It is possible to specify more than one. Please do before invoking notify method.
+
+    $apns->prepare(1st request)->prepare(2nd request)....
+
+Payload please refer: https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/PayloadKeyReference.html#//apple_ref/doc/uid/TP40008194-CH17-SW1.
+
+=head2 $apns->notify();
+
+Execute notification.
+Multiple notifications can be executed with one SSL connection.
+
+=head1 CAUTION
+
+Crypt::PK::ECC can not import the key obtained from Apple as it is. This is currently being handled as Issue. Please use the openssl command to specify the converted key as follows until the modified version appears.
+
+    openssl pkcs8 -in APNs-apple.p8 -inform PEM -out APNs-resaved.p8 -outform PEM -nocrypt
 
 =head1 LICENSE
 
