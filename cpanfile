@@ -5,6 +5,7 @@ requires 'Moo';
 requires 'Protocol::HTTP2' => '>= 1.08';
 requires 'URI';
 requires 'perl', '5.008001';
+requires 'Net::HTTP';
 
 on configure => sub {
     requires 'Module::Build::Tiny', '0.035';

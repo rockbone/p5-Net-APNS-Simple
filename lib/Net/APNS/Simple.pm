@@ -9,16 +9,25 @@ use Moo;
 use Protocol::HTTP2::Client;
 use IO::Select;
 use IO::Socket::SSL qw();
+use Net::HTTP;
 
-our $VERSION = "0.03";
+our $VERSION = "0.04";
 
 has [qw/auth_key key_id team_id bundle_id development/] => (
     is => 'rw',
 );
 
-has apns_expiration => (
+has [qw/cert_file key_file passwd_cb/] => (
     is => 'rw',
-    default => 0,
+);
+
+has [qw/proxy/] => (
+    is => 'rw',
+    default => $ENV{https_proxy},
+);
+
+has [qw/apns_id apns_expiration apns_collapse_id/] => (
+    is => 'rw',
 );
 
 has apns_priority => (
@@ -38,16 +47,46 @@ sub _port {443}
 sub _socket {
     my ($self) = @_;
     if (!$self->{_socket} || !$self->{_socket}->opened){
-        # TLS transport socket
-        $self->{_socket} = IO::Socket::SSL->new(
-            PeerHost => $self->_host,
-            PeerPort => $self->_port,
-            # openssl 1.0.1 support only NPN
-            SSL_npn_protocols => ['h2'],
-            # openssl 1.0.2 also have ALPN
-            SSL_alpn_protocols => ['h2'],
-            SSL_version => 'TLSv1_2',
-        ) or die $! || $IO::Socket::SSL::SSL_ERROR;
+        my %ssl_opts = (
+                        # openssl 1.0.1 support only NPN
+                        SSL_npn_protocols => ['h2'],
+                        # openssl 1.0.2 also have ALPN
+                        SSL_alpn_protocols => ['h2'],
+                        SSL_version => 'TLSv1_2',
+                       );
+        for (qw/cert_file key_file passwd_cb/) {
+            $ssl_opts{"SSL_$_"} = $self->{$_} if defined $self->{$_};
+        }
+
+        my ($host,$port) = ($self->_host, $self->_port);
+
+        my $socket;
+        if ( my $proxy = $self->proxy ) {
+            $proxy =~ s|^http://|| or die "Invalid proxy $proxy - only http proxy is supported!\n";
+            $socket = Net::HTTP->new(PeerAddr => $proxy) || die $@;
+            $socket->write_request(CONNECT => "$host:$port",
+                                   Host => "$host:$port",
+                                   Connection => "Keep-Alive",
+                                   'Proxy-Connection' => "Keep-Alive"
+                                  );
+            my ($code, $mess, %h) = $socket->read_response_headers;
+            $code eq '200' or die "Proxy error: $code $mess";
+
+            IO::Socket::SSL->start_SSL($socket,
+                                       # explicitly set hostname we should use for SNI
+                                       SSL_hostname => $host,
+                                       %ssl_opts
+                                      ) or die $! || $IO::Socket::SSL::SSL_ERROR;
+        }
+        else {
+            # TLS transport socket
+            $socket = IO::Socket::SSL->new(
+                                           PeerHost => $host,
+                                           PeerPort => $port,
+                                           %ssl_opts
+                                          ) or die $! || $IO::Socket::SSL::SSL_ERROR;
+        }
+        $self->{_socket} = $socket;
 
         # non blocking
         $self->{_socket}->blocking(0);
@@ -63,30 +102,40 @@ sub _client {
 
 sub prepare {
     my ($self, $device_token, $payload, $cb) = @_;
-    my $craims = {
-        iss => $self->team_id,
-        iat => time,
-    };
-    my $jwt = Crypt::JWT::encode_jwt(
-        payload => $craims,
-        key => [$self->auth_key],
-        alg => $self->algorithm,
-        extra_headers => {
-            kid => $self->key_id,
-        },
+    my @headers = (
+        'apns-topic' => $self->bundle_id,
     );
+
+    for (qw/apns_id apns_priority apns_expiration apns_collapse_id/) {
+        my $v = $self->{$_};
+        next unless defined $v;
+        my $k = $_;
+        $k =~ s/-/_/g;
+        push @headers, $_ => $v;
+    }
+
+    if ($self->team_id and $self->auth_key and $self->key_id) {
+        my $claims = {
+            iss => $self->team_id,
+            iat => time,
+        };
+        my $jwt = Crypt::JWT::encode_jwt(
+            payload => $claims,
+            key => [$self->auth_key],
+            alg => $self->algorithm,
+            extra_headers => {
+                kid => $self->key_id,
+            },
+        );
+        push @headers, authorization => sprintf('bearer %s', $jwt);
+    }
     my $path = sprintf '/3/device/%s', $device_token;
     push @{$self->{_request}}, {
         ':scheme' => 'https',
         ':authority' => join(":", $self->_host, $self->_port),
         ':path' => $path,
         ':method' => 'POST',
-        headers => [
-            'apns-expiration' => $self->apns_expiration,
-            'apns-priority' => $self->apns_priority,
-            'apns-topic' => $self->bundle_id,
-            'authorization'=> sprintf('bearer %s', $jwt),
-        ],
+        headers => \@headers,
         data => JSON::encode_json($payload),
         on_done => $cb,
     };
@@ -153,6 +202,7 @@ And it also supports multiple stream at one connection.
 
     use Net::APNS::Simple;
 
+    # With provider authentication tokens
     my $apns = Net::APNS::Simple->new(
         # enable if development
         # development => 1,
@@ -160,8 +210,16 @@ And it also supports multiple stream at one connection.
         key_id => 'AUTH_KEY_ID',
         team_id => 'APP_PREFIX',
         bundle_id => 'APP_ID',
-        apns_expiration => 0,
-        apns_priority => 10,
+    );
+
+    # With SSL certificates
+    my $apns = Net::APNS::Simple->new(
+        # enable if development
+        # development => 1,
+        cert_file => '/path/to/cert.pem',
+        key_file => '/path/to/key.pem',
+        passwd_cb => sub { return 'key-password' },
+        bundle_id => 'APP_ID',
     );
 
     # 1st request
@@ -221,13 +279,37 @@ Team ID (App Prefix)
 
 Bundle ID (App ID)
 
+=item cert_file : string
+
+SSL certificate file.
+
+=item key_file : string
+
+SSL key file.
+
+=item passwd_cb
+
+If the private key is encrypted, this should be a reference to a subroutine that should return the password required to decrypt your private key.
+
+=item apns_id : string
+
+Canonical UUID that identifies the notification (apns-id header).
+
 =item apns_expiration : number
 
-Default 0.
+Sets the apns-expiration header.
 
 =item apns_priority : number
 
-Default 10.
+Sets the apns-priority header. Default 10.
+
+=item apns_collapse_id : string
+
+Sets the apns-collapse-id header.
+
+=item proxy : string
+
+URL of a proxy server. Default $ENV{https_proxy}. Pass undef to disable proxy.
 
 =back
 

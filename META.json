@@ -46,6 +46,7 @@
             "IO::Socket::SSL" : "2.038",
             "JSON" : "0",
             "Moo" : "0",
+            "Net:HTTP" : "0",
             "Protocol::HTTP2" : "1.08",
             "URI" : "0",
             "perl" : "5.008001"
@@ -71,8 +72,9 @@
          "web" : "https://github.com/rockbone/p5-Net-APNS-Simple"
       }
    },
-   "version" : "0.03",
+   "version" : "0.04",
    "x_contributors" : [
-      "Tooru Tsurukawa <rockbone.g@gmail.com>"
+      "Tooru Tsurukawa <rockbone.g@gmail.com>",
+      "Nikolay Pelov <npelov@gmail.com>"
    ]
 }
