@@ -3,13 +3,11 @@ use 5.008001;
 use strict;
 use warnings;
 use Carp ();
-use Crypt::JWT ();
 use JSON;
 use Moo;
 use Protocol::HTTP2::Client;
 use IO::Select;
 use IO::Socket::SSL qw();
-use Net::HTTP;
 
 our $VERSION = "0.04";
 
@@ -63,6 +61,7 @@ sub _socket {
         my $socket;
         if ( my $proxy = $self->proxy ) {
             $proxy =~ s|^http://|| or die "Invalid proxy $proxy - only http proxy is supported!\n";
+            require Net::HTTP;
             $socket = Net::HTTP->new(PeerAddr => $proxy) || die $@;
             $socket->write_request(CONNECT => "$host:$port",
                                    Host => "$host:$port",
@@ -115,6 +114,7 @@ sub prepare {
     }
 
     if ($self->team_id and $self->auth_key and $self->key_id) {
+        require Crypt::JWT;
         my $claims = {
             iss => $self->team_id,
             iat => time,
