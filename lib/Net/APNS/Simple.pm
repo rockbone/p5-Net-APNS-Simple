@@ -3,16 +3,15 @@ use 5.008001;
 use strict;
 use warnings;
 use Carp ();
-use Crypt::JWT ();
 use JSON;
 use Moo;
 use Protocol::HTTP2::Client;
 use IO::Select;
 use IO::Socket::SSL qw();
 
-our $VERSION = "0.03";
+our $VERSION = "0.04";
 
-has [qw/auth_key key_id team_id bundle_id development/] => (
+has [qw/cert key development/] => (
     is => 'rw',
 );
 
@@ -47,6 +46,9 @@ sub _socket {
             # openssl 1.0.2 also have ALPN
             SSL_alpn_protocols => ['h2'],
             SSL_version => 'TLSv1_2',
+            # for certificate authentication
+            SSL_cert_file => $self->cert,
+            SSL_key_file => $self->key,
         ) or die $! || $IO::Socket::SSL::SSL_ERROR;
 
         # non blocking
@@ -63,19 +65,7 @@ sub _client {
 
 sub prepare {
     my ($self, $device_token, $payload, $cb) = @_;
-    my $craims = {
-        iss => $self->team_id,
-        iat => time,
-    };
-    my $jwt = Crypt::JWT::encode_jwt(
-        payload => $craims,
-        key => [$self->auth_key],
-        alg => $self->algorithm,
-        extra_headers => {
-            kid => $self->key_id,
-        },
-    );
-    my $path = sprintf '/3/device/%s', $device_token;
+   my $path = sprintf '/3/device/%s', $device_token;
     push @{$self->{_request}}, {
         ':scheme' => 'https',
         ':authority' => join(":", $self->_host, $self->_port),
@@ -84,8 +74,6 @@ sub prepare {
         headers => [
             'apns-expiration' => $self->apns_expiration,
             'apns-priority' => $self->apns_priority,
-            'apns-topic' => $self->bundle_id,
-            'authorization'=> sprintf('bearer %s', $jwt),
         ],
         data => JSON::encode_json($payload),
         on_done => $cb,
@@ -147,8 +135,6 @@ This library uses Protocol::HTTP2::Client as http2 backend.
 And it also supports multiple stream at one connection.
 (It does not correspond to parallel stream because APNS server returns SETTINGS_MAX_CONCURRENT_STREAMS = 1.)
 
-    You can not use the key obtained from Apple at the moment, see the item of Caution below.
-
 =head1 SYNOPSIS
 
     use Net::APNS::Simple;
@@ -156,10 +142,8 @@ And it also supports multiple stream at one connection.
     my $apns = Net::APNS::Simple->new(
         # enable if development
         # development => 1,
-        auth_key => '/path/to/auth_key.p8',
-        key_id => 'AUTH_KEY_ID',
-        team_id => 'APP_PREFIX',
-        bundle_id => 'APP_ID',
+        cert => '/path/to/certificate.pem',
+        key => '/path/to/key.pem',
         apns_expiration => 0,
         apns_priority => 10,
     );
@@ -209,17 +193,13 @@ And it also supports multiple stream at one connection.
 
 Switch API's URL to 'api.development.push.apple.com' if enabled.
 
-=item auth_key : string
+=item cert : string
 
-Private key file for APNS obtained from Apple.
+Path to Apple push notification certificate.
 
-=item team_id : string
+=item key : string
 
-Team ID (App Prefix)
-
-=item bundle_id : string
-
-Bundle ID (App ID)
+Path to Apple push notification certificate's private key.
 
 =item apns_expiration : number
 
@@ -247,15 +227,9 @@ Payload please refer: https://developer.apple.com/library/content/documentation/
 Execute notification.
 Multiple notifications can be executed with one SSL connection.
 
-=head1 CAUTION
-
-Crypt::PK::ECC can not import the key obtained from Apple as it is. This is currently being handled as Issue. Please use the openssl command to specify the converted key as follows until the modified version appears.
-
-    openssl pkcs8 -in APNs-apple.p8 -inform PEM -out APNs-resaved.p8 -outform PEM -nocrypt
-
 =head1 LICENSE
 
-Copyright (C) Tooru Tsurukawa.
+Net::APNS::Simple, Copyright (C) Tooru Tsurukawa.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
@@ -263,6 +237,7 @@ it under the same terms as Perl itself.
 =head1 AUTHOR
 
 Tooru Tsurukawa E<lt>rockbone.g at gmail.comE<gt>
+Certificate authetication modifications by Matthew Powell E<lt>matthew at atom.netE<gt>
 
 =cut
 
