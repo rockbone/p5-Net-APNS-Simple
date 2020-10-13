@@ -15,6 +15,7 @@ And it also supports multiple stream at one connection.
 
     use Net::APNS::Simple;
 
+    # With provider authentication tokens
     my $apns = Net::APNS::Simple->new(
         # enable if development
         # development => 1,
@@ -22,8 +23,16 @@ And it also supports multiple stream at one connection.
         key_id => 'AUTH_KEY_ID',
         team_id => 'APP_PREFIX',
         bundle_id => 'APP_ID',
-        apns_expiration => 0,
-        apns_priority => 10,
+    );
+
+    # With SSL certificates
+    my $apns = Net::APNS::Simple->new(
+        # enable if development
+        # development => 1,
+        cert_file => '/path/to/cert.pem',
+        key_file => '/path/to/key.pem',
+        passwd_cb => sub { return 'key-password' },
+        bundle_id => 'APP_ID',
     );
 
     # 1st request
@@ -81,15 +90,35 @@ And it also supports multiple stream at one connection.
 
     Bundle ID (App ID)
 
+- cert\_file : string
+
+    SSL certificate file.
+
+- key\_file : string
+
+    SSL key file.
+
+- passwd\_cb : sub reference
+
+    If the private key is encrypted, this should be a reference to a subroutine that should return the password required to decrypt your private key.
+
+- apns\_id : string
+
+    Canonical UUID that identifies the notification (apns-id header).
+
 - apns\_expiration : number
 
-    Default 0.
+    Sets the apns-expiration header.
 
 - apns\_priority : number
 
-    Default 10.
+    Sets the apns-priority header. Default 10.
 
-    All properties can be accessed as Getter/Setter like `$apns->development`.
+- proxy : string
+
+    URL of a proxy server. Default $ENV{https_proxy}. Pass undef to disable proxy.
+
+All properties can be accessed as Getter/Setter like `$apns->development`.
 
 ## $apns->prepare($DEVICE\_ID, $PAYLOAD);
 
