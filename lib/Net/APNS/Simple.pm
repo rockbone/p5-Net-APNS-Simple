@@ -109,8 +109,8 @@ sub prepare {
         my $v = $self->{$_};
         next unless defined $v;
         my $k = $_;
-        $k =~ s/-/_/g;
-        push @headers, $_ => $v;
+        $k =~ s/_/-/g;
+        push @headers, $k => $v;
     }
 
     if ($self->team_id and $self->auth_key and $self->key_id) {
