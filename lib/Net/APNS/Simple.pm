@@ -37,7 +37,7 @@ sub algorithm {'ES256'}
 
 sub _host {
     my ($self) = @_;
-    return 'api.' . ($self->development ? 'development.' : '') . 'push.apple.com'
+    return 'api.' . ($self->development ? 'sandbox.' : '') . 'push.apple.com'
 }
 
 sub _port {443}
@@ -46,12 +46,12 @@ sub _socket {
     my ($self) = @_;
     if (!$self->{_socket} || !$self->{_socket}->opened){
         my %ssl_opts = (
-                        # openssl 1.0.1 support only NPN
-                        SSL_npn_protocols => ['h2'],
-                        # openssl 1.0.2 also have ALPN
-                        SSL_alpn_protocols => ['h2'],
-                        SSL_version => 'TLSv1_2',
-                       );
+             # openssl 1.0.1 support only NPN
+             SSL_npn_protocols => ['h2'],
+             # openssl 1.0.2 also have ALPN
+             SSL_alpn_protocols => ['h2'],
+             SSL_version => 'TLSv1_2',
+        );
         for (qw/cert_file key_file passwd_cb/) {
             $ssl_opts{"SSL_$_"} = $self->{$_} if defined $self->{$_};
         }
@@ -63,27 +63,29 @@ sub _socket {
             $proxy =~ s|^http://|| or die "Invalid proxy $proxy - only http proxy is supported!\n";
             require Net::HTTP;
             $socket = Net::HTTP->new(PeerAddr => $proxy) || die $@;
-            $socket->write_request(CONNECT => "$host:$port",
-                                   Host => "$host:$port",
-                                   Connection => "Keep-Alive",
-                                   'Proxy-Connection' => "Keep-Alive"
-                                  );
+            $socket->write_request(
+                CONNECT => "$host:$port",
+                Host => "$host:$port",
+                Connection => "Keep-Alive",
+                'Proxy-Connection' => "Keep-Alive",
+            );
             my ($code, $mess, %h) = $socket->read_response_headers;
             $code eq '200' or die "Proxy error: $code $mess";
 
-            IO::Socket::SSL->start_SSL($socket,
-                                       # explicitly set hostname we should use for SNI
-                                       SSL_hostname => $host,
-                                       %ssl_opts
-                                      ) or die $! || $IO::Socket::SSL::SSL_ERROR;
+            IO::Socket::SSL->start_SSL(
+                $socket,
+                # explicitly set hostname we should use for SNI
+                SSL_hostname => $host,
+                %ssl_opts,
+            ) or die $! || $IO::Socket::SSL::SSL_ERROR;
         }
         else {
             # TLS transport socket
             $socket = IO::Socket::SSL->new(
-                                           PeerHost => $host,
-                                           PeerPort => $port,
-                                           %ssl_opts
-                                          ) or die $! || $IO::Socket::SSL::SSL_ERROR;
+                PeerHost => $host,
+                PeerPort => $port,
+                %ssl_opts,
+            ) or die $! || $IO::Socket::SSL::SSL_ERROR;
         }
         $self->{_socket} = $socket;
 
@@ -106,14 +108,17 @@ sub prepare {
     );
 
     for (qw/apns_id apns_priority apns_expiration apns_collapse_id/) {
-        my $v = $self->{$_};
+        my $v = $self->$_;
         next unless defined $v;
         my $k = $_;
-        $k =~ s/-/_/g;
-        push @headers, $_ => $v;
+        $k =~ s/_/-/g;
+        push @headers, $k => $v;
     }
 
     if ($self->team_id and $self->auth_key and $self->key_id) {
+        require Crypt::PK::ECC;
+        # require for treat pkcs#8 private key
+        Crypt::PK::ECC->VERSION(0.059);
         require Crypt::JWT;
         my $claims = {
             iss => $self->team_id,
@@ -265,7 +270,7 @@ And it also supports multiple stream at one connection.
 
 =item development : bool
 
-Switch API's URL to 'api.development.push.apple.com' if enabled.
+Switch API's URL to 'api.sandbox.push.apple.com' if enabled.
 
 =item auth_key : string
 
@@ -287,7 +292,7 @@ SSL certificate file.
 
 SSL key file.
 
-=item passwd_cb
+=item passwd_cb : sub reference
 
 If the private key is encrypted, this should be a reference to a subroutine that should return the password required to decrypt your private key.
 

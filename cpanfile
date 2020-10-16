@@ -5,6 +5,7 @@ requires 'Protocol::HTTP2' => '>= 1.08';
 requires 'URI';
 requires 'perl', '5.008001';
 
+recommends 'Crypt::PK::ECC' => '>= 0.059';
 recommends 'Crypt::JWT' => '>= 0.018';
 recommends 'Net::HTTP';
 

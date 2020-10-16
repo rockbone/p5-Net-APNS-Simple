@@ -50,6 +50,7 @@
             "perl" : "5.008001"
          },
          "recommends" : {
+            "Crypt::PK::ECC" : "0.059",
             "Crypt::JWT" : "0.018",
             "Net:HTTP" : "0"
          }
@@ -77,6 +78,7 @@
    "version" : "0.04",
    "x_contributors" : [
       "Tooru Tsurukawa <rockbone.g@gmail.com>",
-      "Nikolay Pelov <npelov@gmail.com>"
+      "Nikolay Pelov <npelov@gmail.com>",
+      "Matthew Powell <matthew@atom.net>"
    ]
 }
