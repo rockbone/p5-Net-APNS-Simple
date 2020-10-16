@@ -2,8 +2,7 @@ Revision history for Perl extension Net-APNS-Simple
 
 {{$NEXT}}
 
-0.04 2020-10-13T11:25:35Z
-
+0.04 2020-10-16T06:47:55Z
     - Add support for SSL certificate authentication.
     - Add support for proxy.
     - Add support for apns-id and apns-collapse-id headers.
