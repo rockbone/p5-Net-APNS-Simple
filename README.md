@@ -120,7 +120,7 @@ And it also supports multiple stream at one connection.
 
     URL of a proxy server. Default $ENV{https\_proxy}. Pass undef to disable proxy.
 
-All properties can be accessed as Getter/Setter like `$apns->development`.
+    All properties can be accessed as Getter/Setter like `$apns->development`.
 
 ## $apns->prepare($DEVICE\_ID, $PAYLOAD);
 
@@ -138,7 +138,7 @@ Multiple notifications can be executed with one SSL connection.
 
 # LICENSE
 
-Net::APNS::Simple, Copyright (C) Tooru Tsurukawa.
+Copyright (C) Tooru Tsurukawa.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
