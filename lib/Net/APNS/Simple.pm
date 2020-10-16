@@ -201,8 +201,6 @@ This library uses Protocol::HTTP2::Client as http2 backend.
 And it also supports multiple stream at one connection.
 (It does not correspond to parallel stream because APNS server returns SETTINGS_MAX_CONCURRENT_STREAMS = 1.)
 
-    You can not use the key obtained from Apple at the moment, see the item of Caution below.
-
 =head1 SYNOPSIS
 
     use Net::APNS::Simple;
@@ -333,12 +331,6 @@ Payload please refer: https://developer.apple.com/library/content/documentation/
 
 Execute notification.
 Multiple notifications can be executed with one SSL connection.
-
-=head1 CAUTION
-
-Crypt::PK::ECC can not import the key obtained from Apple as it is. This is currently being handled as Issue. Please use the openssl command to specify the converted key as follows until the modified version appears.
-
-    openssl pkcs8 -in APNs-apple.p8 -inform PEM -out APNs-resaved.p8 -outform PEM -nocrypt
 
 =head1 LICENSE
 
