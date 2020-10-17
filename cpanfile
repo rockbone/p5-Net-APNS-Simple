@@ -13,6 +13,11 @@ on configure => sub {
     requires 'Module::Build::Tiny', '0.035';
 };
 
+on 'test' => sub {
+    requires 'Crypt::PK::ECC' => '>= 0.059';
+    requires 'Crypt::JWT' => '>= 0.018';
+};
+
 on test => sub {
     requires 'Test::More', '0.98';
     requires 'File::Basename';

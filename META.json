@@ -57,6 +57,8 @@
       },
       "test" : {
          "requires" : {
+            "Crypt::JWT" : "0.018",
+            "Crypt::PK::ECC" : "0.059",
             "File::Basename" : "0",
             "File::Spec" : "0",
             "Test::More" : "0.98"
