@@ -77,7 +77,7 @@
          "web" : "https://github.com/rockbone/p5-Net-APNS-Simple"
       }
    },
-   "version" : "0.04",
+   "version" : "0.05",
    "x_contributors" : [
       "Nikolay Pelov <npelov@gmail.com>",
       "Tooru Tsurukawa <rockbone.g@gmail.com>"
