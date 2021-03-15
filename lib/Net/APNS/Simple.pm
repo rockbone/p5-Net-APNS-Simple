@@ -9,7 +9,7 @@ use Protocol::HTTP2::Client;
 use IO::Select;
 use IO::Socket::SSL qw();
 
-our $VERSION = "0.05";
+our $VERSION = "0.06";
 
 has [qw/auth_key key_id team_id bundle_id development/] => (
     is => 'rw',
