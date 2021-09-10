@@ -2,7 +2,7 @@ Revision history for Perl extension Net-APNS-Simple
 
 {{$NEXT}}
 
-0.07 2021-09-01T15:11:14Z
+0.07 2021-09-10T17:03:43Z
     - Support TLSv1.3
 
 0.06 2021-03-15T15:11:14Z
